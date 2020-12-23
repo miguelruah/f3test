@@ -16,9 +16,11 @@ In addition to the above tasks being complete, we will be looking out for
 - Good user experience
 - Meeting common coding standards in the PHP & VueJs code
 
-### Setup
+### Setup (ammended)
 
 - `npm install && npm run watch`
+- `composer install`
+- copy \.env.example to \.env and edit: `APP_KEY=base64:kjdg/ITVfhauwtkkdh5xnT1SXNg+KHlDbgIUQYIXvkVI=`
 - `php artisan serve --port=8085`
 - Visit http://localhost:8085
 

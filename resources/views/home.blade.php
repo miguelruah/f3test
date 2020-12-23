@@ -20,7 +20,7 @@
                 height: 100vh;
                 margin: 0;
             }
-
+            
         </style>
     </head>
     <body>
@@ -43,13 +43,13 @@
             </div>
             <c-s-v-generator></c-s-v-generator>
         </div>
-
+        
         <script src="{{ asset('/js/app.js') }}" type="text/javascript"></script>
+<!--        <script type="module">
+            import CSVGenerator from "../js/components/CSVGenerator";
+            export default {
+                components: {CSVGenerator}
+            }
+        </script>        -->
     </body>
 </html>
-<script>
-    import CSVGenerator from "../js/components/CSVGenerator";
-    export default {
-        components: {CSVGenerator}
-    }
-</script>

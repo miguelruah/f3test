@@ -1956,29 +1956,65 @@ __webpack_require__.r(__webpack_exports__);
   data: function data() {
     return {
       data: [{
+        actions: 1,
         first_name: 'John',
         last_name: 'Doe',
         emailAddress: 'john.doe@example.com'
       }, {
-        first_name: 'John',
-        last_name: 'Doe',
-        emailAddress: 'john.doe@example.com'
+        actions: 2,
+        first_name: 'Mary',
+        last_name: 'Smith',
+        emailAddress: 'mary.smith@example.com'
       }],
       columns: [{
+        key: 'actions'
+      }, {
         key: 'first_name'
       }, {
         key: 'last_name'
       }, {
         key: 'emailAddress'
-      }]
+      }],
+      myVars: { "next_id": 3, "new_col_index": 0 }
     };
   },
   methods: {
-    add_row: function add_row() {// Add new row to data with column keys
+    add_row: function add_row() {
+        var empty_row = '{';
+        var separator = "";
+        /* using arrow functions here so I can access this.myVars from inside the loop */
+        this.columns.forEach((row, index) => {
+            empty_row += separator + '"' + row.key + '"' + ': "';
+            if (row.key == 'actions') {
+                empty_row += this.myVars.next_id.toString();
+                this.myVars.next_id++;
+            }
+            empty_row += '"';
+            separator = ", ";
+        });
+        empty_row += "}";
+        this.data.push(JSON.parse(empty_row));
     },
-    remove_row: function remove_row(row_index) {// remove the given row
+    remove_row: function remove_row(event) {
+        /* if pagination is installed, row_index will have to be recalculated: */
+        /* real_index = page*rows_per_page + row_index                         */
+        if (event.target.type == 'button') {
+            /* find tr ancestor of the input that was clicked */
+            var trElement = event.target.parentNode.parentNode;
+            /* find siblings of this tr element */
+            var trSiblings = Array.prototype.slice.call( trElement.parentNode.children );
+            var row_index = trSiblings.indexOf( trElement );
+            this.data.splice(row_index, 1);
+        }
     },
-    add_column: function add_column() {},
+    add_column: function add_column() {
+        this.myVars.new_col_index++;
+        var new_col_name = 'new_col_' + this.myVars.new_col_index;
+        this.columns.push({'key': new_col_name});
+        for (var i = 0; i < this.data.length; i++) {
+            this.data[i][new_col_name] = '';
+        }
+    },
     updateColumnKey: function updateColumnKey(column, event) {
       var oldKey = column.key;
       var columnKeyExists = !!this.columns.find(function (column) {
@@ -1991,15 +2027,84 @@ __webpack_require__.r(__webpack_exports__);
         return;
       }
 
-      this.data.forEach(function (row) {
-        if (row[oldKey]) {
-          row[column.key] = row[oldKey];
-          delete row[oldKey];
-        }
-      });
+      const newKey = event.target.value;
+      for (var i=0; i<this.data.length; i++) {
+        this.data[i] = this.objFixed(this.data[i], oldKey, newKey);
+      }
     },
-    submit: function submit() {
-      return axios.patch('/api/csv-export', this.data);
+    /* called by render() below */
+    input_type: function input_type(colName) {
+        if (colName=='actions') {
+          return "button";
+        } else {
+          return "text";
+        }
+    },
+    /* called by render() below */
+    input_value: function input_value(colName, colValue) {
+        if (colName=='actions') {
+          return "delete";
+        } else {
+          return colValue;
+        }
+    },
+    objFixed: function objFixed(dataObj, oldKey, newKey) {
+        const oldVal = dataObj[oldKey];
+        delete dataObj[oldKey];
+        dataObj[newKey] = oldVal;
+        return dataObj;
+    },
+    addLeadingZero: function addLeadingZero(value) {
+        if (value < 10) {
+            return "0" + value.toString();
+        } else {
+            return value.toString();
+        }
+    },
+    getCurrentDateString: function getCurrentDateString() {
+        const dateTime = new Date();
+        const dateTimeString = 
+            dateTime.getFullYear(dateTime).toString()+
+            this.addLeadingZero(dateTime.getMonth(dateTime)+1)+
+            this.addLeadingZero(dateTime.getDate(dateTime))+
+            this.addLeadingZero(dateTime.getHours(dateTime))+
+            this.addLeadingZero(dateTime.getMinutes(dateTime))+
+            this.addLeadingZero(dateTime.getSeconds(dateTime));
+        return dateTimeString;
+    },
+    saveFile: function saveFile(outcome) {
+        if (outcome.response == 'Success') {
+            const filename = 'download_' + this.getCurrentDateString() + '.csv';
+
+            /* creating an invisible element  */
+            const hiddenElement = document.createElement('a'); 
+            hiddenElement.href = 'data:text/csv;charset=utf-8,' + encodeURI(outcome.csvstring);
+            hiddenElement.target = '_blank';
+            hiddenElement.download = filename;
+            hiddenElement.style.cssText = "display:none;";
+
+            /* no need to append hiddenElement to body => just click it */
+            hiddenElement.click();
+        } else {
+            console.log(outcome.response);
+            alert("Oops !\nAn error occurred and data could not be exported.\nPlease see more information in the console.");
+        }
+    },
+    submit: function submit(event) {
+        /* copy columns without the reactive properties */
+        var cleanColumns = JSON.parse(JSON.stringify(this.columns, true));
+        cleanColumns.shift(); /* remove actions before export */
+
+        /* copy data without the reactive properties */
+        var cleanData = JSON.parse(JSON.stringify(this.data), true);
+        cleanData.forEach(function (value, key) {
+            delete cleanData[key].actions;
+        });
+
+        return axios.post('/api/csv-export', {"columns": cleanColumns, "data": cleanData})
+            .then(result => {
+                this.saveFile(result.data);
+            });
     }
   },
   watch: {}
@@ -56811,7 +56916,7 @@ var render = function() {
           ]),
           _vm._v(" "),
           _c("div", { staticClass: "card-body" }, [
-            _c("table", { staticClass: "table table-bordered" }, [
+            _c("table", { class: "", staticClass: "table table-bordered rowtable" }, [
               _c("thead", [
                 _c(
                   "tr",
@@ -56850,14 +56955,17 @@ var render = function() {
                             }
                           ],
                           staticClass: "form-control",
-                          attrs: { type: "text" },
-                          domProps: { value: row[columnName] },
+                          attrs: { type: _vm.input_type(columnName) },
+                          domProps: { value: _vm.input_value(columnName, row[columnName]) },
                           on: {
                             input: function($event) {
                               if ($event.target.composing) {
                                 return
                               }
                               _vm.$set(row, columnName, $event.target.value)
+                            },
+                            click: function($event) {
+                              return _vm.remove_row($event)
                             }
                           }
                         })
@@ -56872,13 +56980,29 @@ var render = function() {
             _vm._v(" "),
             _c(
               "button",
-              { staticClass: "btn btn-secondary", attrs: { type: "button" } },
+              {
+				  staticClass: "btn btn-secondary",
+				  attrs: { type: "button" },
+				  on: {
+					click: function($event) {
+						return _vm.add_column()
+					}
+				  }
+			  },
               [_vm._v("Add Column")]
             ),
             _vm._v(" "),
             _c(
               "button",
-              { staticClass: "btn btn-secondary", attrs: { type: "button" } },
+              {
+				  staticClass: "btn btn-secondary",
+				  attrs: { type: "button" },
+				  on: {
+					click: function($event) {
+						return _vm.add_row()
+					}
+				  }
+			  },
               [_vm._v("Add Row")]
             )
           ]),
@@ -69273,8 +69397,8 @@ __webpack_require__.r(__webpack_exports__);
 /*! no static exports found */
 /***/ (function(module, exports, __webpack_require__) {
 
-__webpack_require__(/*! /home/kyle/fu3e/developer-test/resources/js/app.js */"./resources/js/app.js");
-module.exports = __webpack_require__(/*! /home/kyle/fu3e/developer-test/resources/sass/app.scss */"./resources/sass/app.scss");
+__webpack_require__(/*! C:\xampp\htdocs\F3group\developer-test-master\resources\js\app.js */"./resources/js/app.js");
+module.exports = __webpack_require__(/*! C:\xampp\htdocs\F3group\developer-test-master\resources\sass\app.scss */"./resources/sass/app.scss");
 
 
 /***/ })
